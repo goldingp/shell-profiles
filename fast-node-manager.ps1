@@ -4,20 +4,24 @@
 
 function Remove-FnmMultishells {
 
-  $isRecursiveDeleteEnabled = $false
-
-  if ((Test-Path -Path env:\FNM_MULTISHELL_PATH) -and (Test-Path -Path "${env:FNM_MULTISHELL_PATH}")) {
-
-    (Get-Item -Path "${env:FNM_MULTISHELL_PATH}").Delete($isRecursiveDeleteEnabled)
-  }
-
-  $multishellsDir = Get-Item -Path "${env:LOCALAPPDATA}\fnm_multishells"
-  $noOtherPowerShells = (Get-Process -Name powershell | Where-Object -Property Id -NE -Value $PID).Count -eq 0
+  $multishellsDir = [IO.DirectoryInfo]::new("${env:LOCALAPPDATA}\fnm_multishells")
+  $noOtherPowerShells = (Get-Process -Name powershell | Where-Object -Property Id -ne -Value $PID).Count -eq 0
   if ($noOtherPowerShells -and $multishellsDir.Exists) {
+
+    [IO.DirectoryInfo]$currentMultishell = $null
+    if ([IO.Directory]::Exists("${env:FNM_MULTISHELL_PATH}")) {
+
+      $currentMultishell = [IO.DirectoryInfo]::new("${env:FNM_MULTISHELL_PATH}")
+    }
 
     foreach ($directory in $multishellsDir.EnumerateDirectories()) {
 
-      $directory.Delete($isRecursiveDeleteEnabled)
+      if ($currentMultishell -ne $null -and $directory.FullName -eq $currentMultishell.FullName) {
+
+        continue
+      }
+
+      $directory.Delete()
     }
   }
 }
@@ -32,7 +36,10 @@ Remove-FnmMultishells
 
 function Add-FnmMultishell {
 
-  fnm env --corepack-enabled --shell power-shell --use-on-cd | Out-String | Invoke-Expression
+  if ([String]::IsNullOrWhiteSpace("${env:FNM_MULTISHELL_PATH}") -or -not [IO.Directory]::Exists("${env:FNM_MULTISHELL_PATH}")) {
+
+    fnm env --corepack-enabled --shell power-shell --use-on-cd | Out-String | Invoke-Expression
+  }
 }
 
 Add-FnmMultishell
